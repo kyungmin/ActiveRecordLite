@@ -14,9 +14,11 @@ class MassObject
   end
 
   def self.parse_all(results)
+    obj_arr = []
     results.each do |result|
-      self.new(result)
+      obj_arr << self.new(result)
     end
+    obj_arr
   end
 
   def initialize(params = {})

@@ -25,7 +25,7 @@ describe "associatable" do
 
     class House < SQLObject
       set_table_name("houses")
-      my_attr_accessible(:id, :address, :house_id)
+      my_attr_accessible(:id, :address)
     end
   end
 
