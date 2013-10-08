@@ -22,7 +22,7 @@ class BelongsToAssocParams < AssocParams
   end
 
   def type
-
+    :belongs_to
   end
 
 end
@@ -37,7 +37,7 @@ class HasManyAssocParams < AssocParams
   end
 
   def type
-
+    :has_many
   end
 end
 
@@ -79,17 +79,16 @@ module Associatable
   end
 
   def has_one_through(name, assoc1, assoc2)
-
     define_method(name) do
-      params1 = self.class.assoc_params[assoc1]
-      params2 = params1.other_class.assoc_params[assoc2]
+      params1 = self.class.assoc_params[assoc1] # (cat -> human)
+      params2 = params1.other_class.assoc_params[assoc2] # (human -> house)
 
-      foreign_key_value = self.send(params1.foreign_key)
-      results = DBConnection.execute(<<-SQL, foreign_key_value)
+      params1_foreign_key = self.send(params1.foreign_key)
+      results = DBConnection.execute(<<-SQL, params1_foreign_key)
       SELECT #{params2.other_table}.*
       FROM #{params1.other_table}
       JOIN #{params2.other_table}
-      ON #{params1.other_table}.#{params2.foreign_key} = #{params2.other_table}.#{params2.primary_key}
+      ON #{params2.other_table}.#{params2.primary_key} = #{params1.other_table}.#{params2.foreign_key}
       WHERE #{params1.other_table}.#{params1.primary_key} = ?
       SQL
 
