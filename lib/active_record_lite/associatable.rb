@@ -43,18 +43,16 @@ end
 
 module Associatable
   def assoc_params
-
+    @assoc_params = @assoc_params || {}
   end
 
   def belongs_to(name, params = {})
     define_method(name) do
       bta = BelongsToAssocParams.new(name, params)
-      other_class_attributes = bta.other_class.attributes.map do |attr_name|
-        "#{bta.other_table}.#{attr_name}"
-      end.join(", ")
+      self.class.assoc_params[name] = bta
 
       results = DBConnection.execute(<<-SQL)
-      SELECT #{other_class_attributes}
+      SELECT #{bta.other_table}.*
       FROM #{self.class.table_name}
       JOIN #{bta.other_table}
       ON #{bta.other_table}.#{bta.primary_key} = #{self.class.table_name}.#{bta.foreign_key}
@@ -66,23 +64,36 @@ module Associatable
 
   def has_many(name, params = {})
     define_method(name) do
-      bta = HasManyAssocParams.new(name, params, self)
-      other_class_attributes = bta.other_class.attributes.map do |attr_name|
-        "#{bta.other_table}.#{attr_name}"
-      end.join(", ")
+      hma = HasManyAssocParams.new(name, params, self)
+      self.class.assoc_params[name] = hma
 
       results = DBConnection.execute(<<-SQL)
-      SELECT #{other_class_attributes}
+      SELECT #{hma.other_table}.*
       FROM #{self.class.table_name}
-      JOIN #{bta.other_table}
-      ON #{self.class.table_name}.#{bta.primary_key} = #{bta.other_table}.#{bta.foreign_key}
+      JOIN #{hma.other_table}
+      ON #{self.class.table_name}.#{hma.primary_key} = #{hma.other_table}.#{hma.foreign_key}
       SQL
 
-      bta.other_class.parse_all(results)
+      hma.other_class.parse_all(results)
     end
   end
 
   def has_one_through(name, assoc1, assoc2)
 
+    define_method(name) do
+      params1 = self.class.assoc_params[assoc1]
+      params2 = params1.other_class.assoc_params[assoc2]
+
+      foreign_key_value = self.send(params1.foreign_key)
+      results = DBConnection.execute(<<-SQL, foreign_key_value)
+      SELECT #{params2.other_table}.*
+      FROM #{params1.other_table}
+      JOIN #{params2.other_table}
+      ON #{params1.other_table}.#{params2.foreign_key} = #{params2.other_table}.#{params2.primary_key}
+      WHERE #{params1.other_table}.#{params1.primary_key} = ?
+      SQL
+
+      params2.other_class.parse_all(results).first
+    end
   end
 end
